@@ -81,7 +81,6 @@ class QuandlAlgo(QCAlgorithm):
             return VaR_normal(mu, sigma, c)
     
     
-
     def stats(self, symbols):
         #Use Statsmodels package to compute linear regression and ADF statistics
 
@@ -148,7 +147,7 @@ class QuandlAlgo(QCAlgorithm):
             
             # buying amount limit
 
-            var_weight = abs(self.VaR_limit) ### VAR limit 
+            # var_weight = abs(self.VaR_limit) ### VAR limit 
             symbols = [pair[0], pair[1], buying_weight_0, buying_weight_1, self.Securities[pair[0]].Price, self.Securities[pair[1]].Price]
             mean_return, std = self.stats(symbols)[0], self.stats(symbols)[1]
         
@@ -161,7 +160,8 @@ class QuandlAlgo(QCAlgorithm):
             margin_used = self.Portfolio.TotalMarginUsed
             
             margincall_weight = margin / (margin + margin_used)
-            h_threshold = min(var_weight, margincall_weight)
+            # h_threshold = min(var_weight, margincall_weight)
+            h_threshold = margincall_weight
             # l_threshold = kelly_weight or how to use kelly's principle
             if h_threshold >= buying_weight and not self.Portfolio.Invested and self.dic[pair[0]] > 0 and self.dic[pair[1]] > 0: # self.dic is used for trading costs
                 self.SetHoldings(pair[0], buying_weight_0)
@@ -219,3 +219,20 @@ class QuandlAlgo(QCAlgorithm):
                     self.SetHoldings(stock2, stock1_pct * k)
 
         self.count += 1
+
+        if self.count % (6.5*60) == 0:
+            self.dic = {}
+            for each_pair in self.pairs:
+                self.invested.append(each_pair[0])
+                self.invested.append(each_pair[1])
+
+                #self.dic is used for control trading costs
+                if not each_pair[0] in self.dic:
+                    self.dic[each_pair[0]] = 1
+                else:
+                    self.dic[each_pair[0]] += 1
+
+                if not each_pair[1] in self.dic:
+                    self.dic[each_pair[1]] = 1
+                else:
+                    self.dic[each_pair[1]] += 1    
