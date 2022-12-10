@@ -20,7 +20,7 @@ class QuandlAlgo(QCAlgorithm):
         
         for ticker in self.pairs:
             
-            self.AddEquity(ticker, Resolution.minute)
+            self.AddEquity(ticker, Resolution.Minute)
             self.symbols.append(self.Symbol(ticker))
         
         # drawdown limit = 20%
@@ -163,7 +163,7 @@ class QuandlAlgo(QCAlgorithm):
             # h_threshold = min(var_weight, margincall_weight)
             h_threshold = margincall_weight
             # l_threshold = kelly_weight or how to use kelly's principle
-            if h_threshold >= buying_weight and not self.Portfolio.Invested and self.dic[pair[0]] > 0 and self.dic[pair[1]] > 0: # self.dic is used for trading costs
+            if h_threshold >= buying_weight and self.dic[pair[0]] > 0 and self.dic[pair[1]] > 0: # self.dic is used for trading costs
                 self.SetHoldings(pair[0], buying_weight_0)
                 self.SetHoldings(pair[1], buying_weight_1)
                 self.dic[pair[0]] -= 1
