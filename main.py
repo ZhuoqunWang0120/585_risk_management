@@ -11,8 +11,8 @@ from AlgorithmImports import *
 class QuandlAlgo(QCAlgorithm):
 
     def Initialize(self):
-        self.SetStartDate(2017, 1, 1, 9, 0)  # Set Start Date
-        self.SetEndDate(2018, 1, 1, 9, 0)  # Set Start Date
+        self.SetStartDate(2017, 1, 1)  # Set Start Date
+        self.SetEndDate(2018, 1, 1)  # Set Start Date
         self.SetCash(1000000)  # Set Strategy Cash
         
         self.pairs =[['MS', 'XOM'], ['GOOG', 'AAPL']]# just a random stock selection
@@ -54,6 +54,7 @@ class QuandlAlgo(QCAlgorithm):
                 self.dic[each_pair[1]] += 1    
         
         self.vix = self.AddIndex('VIX', Resolution.Minute)
+        
     def VaR_normal(mu, sigma, c = 0.95):
         """
         Variance-Covariance calculation (with Gaussian assumption) of Value-at-Risk
@@ -63,6 +64,7 @@ class QuandlAlgo(QCAlgorithm):
         """
         r = norm.ppf(1-c, mu, sigma)
         return r
+    
     def VaR_historical(rets, c = 0.95):
         """
         Calculate value-at-Risk with confidence level c (e.g., 0.95) based on historical return rets (list)
@@ -70,6 +72,7 @@ class QuandlAlgo(QCAlgorithm):
         """
         r = sorted(rets)[max(round(len(rets) * (1 - c)) - 1, 0)]
         return r
+    
     def VaR(rets, c = None, method = 'normal'):
         if not c:
             c = 0.95
@@ -119,9 +122,6 @@ class QuandlAlgo(QCAlgorithm):
         
         return [mean_return, std, zscore]
     
-
-
-
 
 
 
