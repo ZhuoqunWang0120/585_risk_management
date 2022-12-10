@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+from scipy.stats import norm
 
 
 from QuantConnect.Data.Custom import Quandl
@@ -28,6 +29,12 @@ class QuandlAlgo(QCAlgorithm):
         self.riskfree_rate = self.AddData(TradingEconomicsCalendar, TradingEconomics.Calendar.UnitedStates.GovernmentBondTenY)
         self.lookback = 20 # looback past 20 days
 
+        # VaR 
+        self.lookback_VaR = 1*24*60
+        self.portfolio_val = []
+        self.count = 0
+        self.VaR_limit = -0.05 # probably too restrictive. may want to change to something like 0.1 to reduce its effect on the algo
+
         self.invested = [] # used to remember all the invested pairs. also used for trading cost control
         self.reenter = []
         self.dic = {}
@@ -47,9 +54,35 @@ class QuandlAlgo(QCAlgorithm):
                 self.dic[each_pair[1]] += 1    
         
         self.vix = self.AddIndex('VIX', Resolution.Minute)
+    def VaR_normal(mu, sigma, c = 0.95):
+        """
+        Variance-Covariance calculation (with Gaussian assumption) of Value-at-Risk
+        using confidence level c (e.g., 0.95), with mean of returns mu
+        and standard deviation of returns sigma
+        Returns the log-return l where P(return > l) = c
+        """
+        r = norm.ppf(1-c, mu, sigma)
+        return r
+    def VaR_historical(rets, c = 0.95):
+        """
+        Calculate value-at-Risk with confidence level c (e.g., 0.95) based on historical return rets (list)
+        Returns the log-return l where P(return > l) = c
+        """
+        r = sorted(rets)[max(round(len(rets) * (1 - c)) - 1, 0)]
+        return r
+    def VaR(rets, c = None, method = 'normal'):
+        if not c:
+            c = 0.95
+        if method == 'historical':
+            return VaR_historical(rets, c)
+        else:
+            mu = np.mean(rets)
+            sigma = np.sqrt(np.var(rets))
+            return VaR_normal(mu, sigma, c)
+    
+    
 
     def stats(self, symbols):
-        
         #Use Statsmodels package to compute linear regression and ADF statistics
 
         self.df = self.History(symbols, self.lookback)
@@ -115,7 +148,7 @@ class QuandlAlgo(QCAlgorithm):
             
             # buying amount limit
 
-            var_weight = ### VAR limit 
+            var_weight = abs(self.VaR_limit) ### VAR limit 
             symbols = [pair[0], pair[1], buying_weight_0, buying_weight_1, self.Securities[pair[0]].Price, self.Securities[pair[1]].Price]
             mean_return, std = self.stats(symbols)[0], self.stats(symbols)[1]
         
@@ -164,3 +197,25 @@ class QuandlAlgo(QCAlgorithm):
                 elif [stock2, stock1] in self.pairs:
                     self.pairs.remove([stock2, stock1])
                     self.reenter.append([stock2, stock1])
+
+        # VaR
+        self.portfolio_val.append(self.Portfolio.TotalPortfolioValue)
+        if len(self.portfolio_val) > self.lookback_VaR:
+            self.portfolio_val.pop(0)
+        if len(self.portfolio_val) >=30:
+            logval = np.log(np.array(self.portfolio_val))
+            rets = logval[1:] - logval[-1]
+            VaR_stats = VaR(rets)
+            if VaR_stats < self.VaR_limit: 
+                k = VaR_limit/VaR_stats
+                k = min(k,1)
+                k = max(k,0)
+                for pair1 in self.pairs:
+                    stock1 = pair1[0]
+                    stock2 = pair1[1]
+                    stock1_pct = abs(self.Portfolio[stock1].HoldingsValue/(10**7))
+                    self.SetHoldings(stock1, stock1_pct * k)
+                    stock2_pct = abs(self.Portfolio[stock2].HoldingsValue/(10**7))
+                    self.SetHoldings(stock2, stock1_pct * k)
+
+        self.count += 1
