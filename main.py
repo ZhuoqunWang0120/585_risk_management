@@ -28,7 +28,8 @@ class QuandlAlgo(QCAlgorithm):
         # drawdown limit = 20%
         self.SetRiskManagement(MaximumDrawdownPercentPerSecurity(0.2))
 
-        self.riskfree_rate = self.AddData(TradingEconomicsCalendar, TradingEconomics.Calendar.UnitedStates.GovernmentBondTenY)
+        self.riskfree_rate = 0.031
+        #self.AddData(TradingEconomicsCalendar, TradingEconomics.Calendar.UnitedStates.GovernmentBondTenY)
         self.lookback = 20 # looback past 20 days
 
         # VaR 
@@ -65,7 +66,7 @@ class QuandlAlgo(QCAlgorithm):
         
         # history = self.History(CBOE, self.vix, 60, Resolution.Daily)
         
-    def VaR_normal(mu, sigma, c = 0.95):
+    def VaR_normal(self, mu, sigma, c = 0.95):
         """
         Variance-Covariance calculation (with Gaussian assumption) of Value-at-Risk
         using confidence level c (e.g., 0.95), with mean of returns mu
@@ -75,7 +76,7 @@ class QuandlAlgo(QCAlgorithm):
         r = norm.ppf(1-c, mu, sigma)
         return r
     
-    def VaR_historical(rets, c = 0.95):
+    def VaR_historical(self, rets, c = 0.95):
         """
         Calculate value-at-Risk with confidence level c (e.g., 0.95) based on historical return rets (list)
         Returns the log-return l where P(return > l) = c
@@ -83,21 +84,21 @@ class QuandlAlgo(QCAlgorithm):
         r = sorted(rets)[max(round(len(rets) * (1 - c)) - 1, 0)]
         return r
     
-    def VaR(rets, c = None, method = 'normal'):
+    def VaR(self, rets, c = None, method = 'normal'):
         if not c:
             c = 0.95
         if method == 'historical':
-            return VaR_historical(rets, c)
+            return self.VaR_historical(rets, c)
         else:
             mu = np.mean(rets)
             sigma = np.sqrt(np.var(rets))
-            return VaR_normal(mu, sigma, c)
+            return self.VaR_normal(mu, sigma, c)
     
     
     def stats(self, symbols):
         #Use Statsmodels package to compute linear regression and ADF statistics
-
-        self.df = self.History(symbols, self.lookback)
+        new_symbols = symbols[:2]
+        self.df = self.History(new_symbols, self.lookback)
         self.dg = self.df["open"].unstack(level=0)
         self.dh = self.df['close'].unstack(level = 0)
         
@@ -111,9 +112,8 @@ class QuandlAlgo(QCAlgorithm):
         current_value = symbols[4] * symbols[2] + symbols[5] * symbols[3]
         mean_return = current_value / initial_value - 1
         
-        ticker1_std = np(self.dg([ticker1], 20, Resolution.Daily).pct_change()).std()
-        ticker2_std = np(self.dg([ticker2], 20, Resolution.Daily).pct_change()).std()
-
+        ticker1_std = self.dg[ticker1].std() 
+        ticker2_std = self.dg[ticker2].std() 
         cov_matrix = np.cov(self.dh.dropna())
         std = symbols[4] * symbols[4]*ticker1_std * ticker1_std + symbols[5] * symbols[5]*ticker2_std * ticker2_std + 2* symbols[4] * symbols[5]*ticker1_std * ticker2_std * cov_matrix
 
@@ -173,7 +173,7 @@ class QuandlAlgo(QCAlgorithm):
             # h_threshold = min(var_weight, margincall_weight)
             h_threshold = margincall_weight
             # l_threshold = kelly_weight or how to use kelly's principle
-            if h_threshold >= buying_weight and self.dic[pair[0]] > 0 and self.dic[pair[1]] > 0: # self.dic is used for trading costs
+            if h_threshold >= buying_weight_0 + buying_weight_1 and self.dic[pair[0]] > 0 and self.dic[pair[1]] > 0: # self.dic is used for trading costs
                 self.SetHoldings(pair[0], buying_weight_0)
                 self.SetHoldings(pair[1], buying_weight_1)
                 self.dic[pair[0]] -= 1
@@ -190,8 +190,8 @@ class QuandlAlgo(QCAlgorithm):
         for pair1 in self.pairs:
             stock1 = pair1[0]
             stock2 = pair1[1]
-            stock1_open = self.Securities[stock1].open
-            stock2_open = self.Securities[stock2].open
+            stock1_open = self.Securities[stock1].Open
+            stock2_open = self.Securities[stock2].Open
             stock1_quantity = self.Portfolio[stock1].Quantity
             stock2_quantity = self.Portfolio[stock2].Quantity
         
@@ -215,7 +215,7 @@ class QuandlAlgo(QCAlgorithm):
         if len(self.portfolio_val) >=30:
             logval = np.log(np.array(self.portfolio_val))
             rets = logval[1:] - logval[-1]
-            VaR_stats = VaR(rets)
+            VaR_stats = self.VaR(rets)
             if VaR_stats < self.VaR_limit: 
                 k = VaR_limit/VaR_stats
                 k = min(k,1)
