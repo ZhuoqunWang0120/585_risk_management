@@ -14,7 +14,7 @@ class QuandlAlgo(QCAlgorithm):
 
     def Initialize(self):
         self.SetStartDate(2017, 5, 1)  # Set Start Date
-        self.SetEndDate(2018, 1, 1)  # Set Start Date
+        self.SetEndDate(2018, 1, 1)  # Set End Date
         self.SetCash(10000000)  # Set Strategy Cash
         
         self.pairs =[['MS', 'XOM'], ['GOOG', 'AAPL']]# just a random stock selection
@@ -35,7 +35,8 @@ class QuandlAlgo(QCAlgorithm):
         self.lookback = 20 # looback past 20 days
 
         # VaR 
-        self.lookback_VaR = 1*24*60
+        # self.lookback_VaR = 1*24*60
+        self.lookback_VaR = 30
         self.portfolio_val = []
         self.count = 0
         self.VaR_limit = -0.05 # probably too restrictive. may want to change to something like 0.1 to reduce its effect on the algo
@@ -213,26 +214,25 @@ class QuandlAlgo(QCAlgorithm):
                     self.reenter.append([stock2, stock1])
 
         # VaR
-        self.portfolio_val.append(self.Portfolio.TotalPortfolioValue)
-        if len(self.portfolio_val) > self.lookback_VaR:
-            self.portfolio_val.pop(0)
-        if len(self.portfolio_val) >=30:
-            logval = np.log(np.array(self.portfolio_val))
-            rets = logval[1:] - logval[-1]
-            VaR_stats = self.VaR(rets)
-            if VaR_stats < self.VaR_limit: 
-                k = VaR_limit/VaR_stats
-                k = min(k,1)
-                k = max(k,0)
-                for pair1 in self.pairs:
-                    stock1 = pair1[0]
-                    stock2 = pair1[1]
-                    stock1_pct = abs(self.Portfolio[stock1].HoldingsValue/(10**7))
-                    self.SetHoldings(stock1, stock1_pct * k)
-                    stock2_pct = abs(self.Portfolio[stock2].HoldingsValue/(10**7))
-                    self.SetHoldings(stock2, stock1_pct * k)
-
-        self.count += 1
+        if self.count % (6.5*60) == 0:
+            self.portfolio_val.append(self.Portfolio.TotalPortfolioValue)
+            if len(self.portfolio_val) > self.lookback_VaR:
+                self.portfolio_val.pop(0)
+            if len(self.portfolio_val) >=30:
+                logval = np.log(np.array(self.portfolio_val))
+                rets = logval[1:] - logval[-1]
+                VaR_stats = self.VaR(rets)
+                if VaR_stats < self.VaR_limit: 
+                    k = VaR_limit/VaR_stats
+                    k = min(k,1)
+                    k = max(k,0)
+                    for pair1 in self.pairs:
+                        stock1 = pair1[0]
+                        stock2 = pair1[1]
+                        stock1_pct = abs(self.Portfolio[stock1].HoldingsValue/(10**7))
+                        self.SetHoldings(stock1, stock1_pct * k)
+                        stock2_pct = abs(self.Portfolio[stock2].HoldingsValue/(10**7))
+                        self.SetHoldings(stock2, stock1_pct * k)
 
         if self.count % (6.5*60) == 0:
             self.dic = {}
@@ -250,3 +250,5 @@ class QuandlAlgo(QCAlgorithm):
                     self.dic[each_pair[1]] = 1
                 else:
                     self.dic[each_pair[1]] += 1 
+        
+        self.count += 1
