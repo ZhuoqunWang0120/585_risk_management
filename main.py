@@ -1,11 +1,12 @@
 import numpy as np
 import pandas as pd
 from scipy.stats import norm
-
-
+from datetime import timedelta, datetime
+import math 
+import statsmodels.api as sm
+from statsmodels.tsa.stattools import coint, adfuller
 from QuantConnect.Data.Custom import Quandl
 from QuantConnect.Python import PythonQuandl
-from QuantConnect.Data.Custom.USTreasury import *
 from AlgorithmImports import *
 
 class QuandlAlgo(QCAlgorithm):
