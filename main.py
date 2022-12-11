@@ -201,7 +201,7 @@ class QuandlAlgo(QCAlgorithm):
         
             current_pair_value = self.Securities[stock1].Price * stock1_quantity + self.Securities[stock2].Price * stock2_quantity
             base_pair_value = stock1_open * stock1_quantity + stock2_open * stock2_quantity
-            if current_pair_value/base_pair_value < 0.95: ### modify here
+            if base_pair_value != 0 and current_pair_value/base_pair_value < 0.95:
                 self.Liquidate(self.Securities[stock1])
                 self.Liquidate(self.Securities[stock2])
 
