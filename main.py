@@ -13,15 +13,17 @@ class QuandlAlgo(QCAlgorithm):
     def Initialize(self):
         self.SetStartDate(2017, 1, 1)  # Set Start Date
         self.SetEndDate(2018, 1, 1)  # Set Start Date
-        self.SetCash(1000000)  # Set Strategy Cash
+        self.SetCash(10000000)  # Set Strategy Cash
         
         self.pairs =[['MS', 'XOM'], ['GOOG', 'AAPL']]# just a random stock selection
         self.symbols =[]
         
         for ticker in self.pairs:
             
-            self.AddEquity(ticker, Resolution.Minute)
-            self.symbols.append(self.Symbol(ticker))
+            self.AddEquity(ticker[0], Resolution.Minute)
+            self.symbols.append(self.Symbol(ticker[0]))
+            self.AddEquity(ticker[1], Resolution.Minute)
+            self.symbols.append(self.Symbol(ticker[1]))
         
         # drawdown limit = 20%
         self.SetRiskManagement(MaximumDrawdownPercentPerSecurity(0.2))
@@ -53,7 +55,15 @@ class QuandlAlgo(QCAlgorithm):
             else:
                 self.dic[each_pair[1]] += 1    
         
-        self.vix = self.AddIndex('VIX', Resolution.Minute)
+        # using vix and vxy for re-enter
+        self.vix = self.AddData(CBOE, 'VIX', Resolution.Daily).Symbol
+        self.vxv = self.AddData(CBOE, 'VIX3M', Resolution.Daily).Symbol
+        self.vix_sma = self.SMA(self.vix, 1, Resolution.Daily)
+        self.vxv_sma = self.SMA(self.vxv, 1, Resolution.Daily)
+
+        self.ratio = IndicatorExtensions.Over(self.vxv_sma, self.vix_sma)
+        
+        # history = self.History(CBOE, self.vix, 60, Resolution.Daily)
         
     def VaR_normal(mu, sigma, c = 0.95):
         """
@@ -138,7 +148,7 @@ class QuandlAlgo(QCAlgorithm):
                 
                 dropped_stats = [dropped_pair[0], dropped_pair[1], buying_weight_0, buying_weight_1, self.Securities[pair[0]].Price, self.Securities[pair[1]].Price]
                 zscore_pair = self.stats(dropped_stats)[2]
-                if zscore_pair > -2 and zscore_pair < 2 and self.vix < 33:
+                if zscore_pair > -2 and zscore_pair < 2 and self.ratio.Current.Value > 1:
                     self.reenter.remove(dropped_pair)
                     self.pairs.append(dropped_pair)
 
@@ -235,4 +245,4 @@ class QuandlAlgo(QCAlgorithm):
                 if not each_pair[1] in self.dic:
                     self.dic[each_pair[1]] = 1
                 else:
-                    self.dic[each_pair[1]] += 1    
+                    self.dic[each_pair[1]] += 1 
