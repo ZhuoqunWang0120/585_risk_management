@@ -1,18 +1,19 @@
-import numpy as np
-import pandas as pd
-from scipy.stats import norm
-from datetime import timedelta, datetime
-import math 
-import statsmodels.api as sm
-from statsmodels.tsa.stattools import coint, adfuller
 from QuantConnect.Data.Custom import Quandl
 from QuantConnect.Python import PythonQuandl
+from scipy.stats import norm
+import numpy as np
+import pandas as pd
+from datetime import timedelta, datetime
+import math 
+from numpy import NaN
+import statsmodels.api as sm
+from statsmodels.tsa.stattools import coint
 from AlgorithmImports import *
 
 class QuandlAlgo(QCAlgorithm):
 
     def Initialize(self):
-        self.SetStartDate(2017, 1, 1)  # Set Start Date
+        self.SetStartDate(2017, 5, 1)  # Set Start Date
         self.SetEndDate(2018, 1, 1)  # Set Start Date
         self.SetCash(10000000)  # Set Strategy Cash
         
@@ -114,6 +115,7 @@ class QuandlAlgo(QCAlgorithm):
         mean_return = current_value / initial_value - 1
         
         ticker1_std = self.dg[ticker1].std() 
+        #np(self.dg[[ticker1], 20, Resolution.Daily].pct_change()).std()
         ticker2_std = self.dg[ticker2].std() 
         cov_matrix = np.cov(self.dh.dropna())
         std = symbols[4] * symbols[4]*ticker1_std * ticker1_std + symbols[5] * symbols[5]*ticker2_std * ticker2_std + 2* symbols[4] * symbols[5]*ticker1_std * ticker2_std * cov_matrix
@@ -122,14 +124,15 @@ class QuandlAlgo(QCAlgorithm):
         Y = self.dg[ticker1].apply(lambda x: math.log(x))
         X = self.dg[ticker2].apply(lambda x: math.log(x))
         X = sm.add_constant(X)
-        model = sm.OLS(Y,X)
+        model = sm.OLS(Y,X, missing='drop')
         results = model.fit()
         sigma = math.sqrt(results.mse_resid) # standard deviation of the residual
         slope = results.params[1]
         intercept = results.params[0]
         res = results.resid #regression residual mean of res =0 by definition
         zscore = res/sigma
-        adf = adfuller (res)
+        
+        
         
         return [mean_return, std, zscore]
     
